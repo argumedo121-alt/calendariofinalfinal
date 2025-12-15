@@ -247,69 +247,65 @@
         let currentPeriod = "";
 
         // --- GEMINI API INTEGRATION ---
-        const apiKey = ""; // Runtime provided
 
         async function askGemini(prompt) {
-            const responseArea = document.getElementById('aiResponseArea');
-            const loader = document.getElementById('aiLoader');
-            const contentDiv = document.getElementById('aiContent');
-            
-            responseArea.classList.remove('hidden');
-            loader.classList.remove('hidden');
-            contentDiv.innerHTML = ''; // Clear previous
+    const responseArea = document.getElementById('aiResponseArea');
+    const loader = document.getElementById('aiLoader');
+    const contentDiv = document.getElementById('aiContent');
 
-            // Setting System Instruction for concise responses
-            const systemPrompt = "Actúa como un experto en gestión de turnos médicos y salud ocupacional en Colombia. El usuario requiere respuestas MUY BREVES y CONCISAS. Solo proporciona la información esencial y evita introducciones o conclusiones largas. Responde en español.";
-            
-            // Construct Context
-            const userQuery = `
-                Malla de Turnos:
-                Empleado: ${currentEmployeeName}
-                Periodo: ${currentPeriod}
-                Horas Totales: ${currentStats.totalHours}
-                Detalle de Turnos (Día: Código [Horas]):
-                ${currentShiftsForAI.map(s => `Día ${s.day}: ${s.code} [${s.hours}h]`).join(', ')}
-                
-                Solicitud: ${prompt}
-            `;
+    responseArea.classList.remove('hidden');
+    loader.classList.remove('hidden');
+    contentDiv.innerHTML = '';
 
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: userQuery }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] }
-                    })
-                });
+    const systemPrompt =
+        "Actúa como un experto en gestión de turnos médicos y salud ocupacional en Colombia. " +
+        "El usuario requiere respuestas MUY BREVES y CONCISAS. " +
+        "Solo proporciona la información esencial y evita introducciones o conclusiones largas. " +
+        "Responde en español.";
 
-                const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error.message);
-                }
+    const userQuery = `
+Malla de Turnos:
+Empleado: ${currentEmployeeName}
+Periodo: ${currentPeriod}
+Horas Totales: ${currentStats.totalHours}
+Detalle de Turnos (Día: Código [Horas]):
+${currentShiftsForAI.map(s => `Día ${s.day}: ${s.code} [${s.hours}h]`).join(', ')}
 
-                const aiText = data.candidates[0].content.parts[0].text;
-                
-                // Render Markdown
-                contentDiv.innerHTML = marked.parse(aiText);
+Solicitud: ${prompt}
+    `;
 
-            } catch (error) {
-                console.error("Gemini Error:", error);
-                contentDiv.innerHTML = `<p class="text-red-600">Lo siento, hubo un error al conectar con el asistente IA. Por favor intenta de nuevo.</p>`;
-            } finally {
-                loader.classList.add('hidden');
+    try {
+        const response = await fetch(
+            "https://gemini-proxy.argumedo121.workers.dev/ai",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    prompt: systemPrompt + "\n\n" + userQuery
+                })
             }
+        );
+
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error);
         }
 
-        function triggerCustomPrompt() {
-            const input = document.getElementById('customAiPrompt');
-            const val = input.value.trim();
-            if (val) {
-                askGemini(val);
-                input.value = ''; // Clear input
-            }
-        }
+        const aiText =
+            data.candidates?.[0]?.content?.parts?.[0]?.text ||
+            "No se recibió respuesta válida del modelo.";
+
+        contentDiv.innerHTML = marked.parse(aiText);
+
+    } catch (error) {
+        console.error("IA Error:", error);
+        contentDiv.innerHTML =
+            `<p class="text-red-600">Error al conectar con el asistente IA.</p>`;
+    } finally {
+        loader.classList.add('hidden');
+    }
+}
 
         // --- EXISTING CONFIGURATION ---
         const absenceCodes = {
